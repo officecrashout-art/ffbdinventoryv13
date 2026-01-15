@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root { --primary: #1abc9c; --bg: #f4f7f6; --card: #fff; --border: #dee2e6; }
+    body { font-family: 'Poppins', sans-serif; background: var(--bg); padding: 20px; margin:0; }
+    
+    .container { max-width: 1200px; margin: 0 auto; background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    .toolbar { display: flex; justify-content: space-between; margin-bottom: 20px; }
+    
+    input { padding: 10px; border: 1px solid var(--border); border-radius: 6px; width: 300px; }
+    
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid var(--border); }
+    td { padding: 12px; border-bottom: 1px solid #eee; }
+    
+    .badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-red { background: #ffebee; color: #c62828; }
+    .badge-green { background: #e8f5e9; color: #2e7d32; }
+
+    /* Modal */
+    .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; }
+    .modal-content { background:white; width: 600px; max-height:80vh; overflow-y:auto; padding:20px; border-radius:10px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="toolbar">
+    <h2 style="margin:0; color:var(--primary);">Customer Directory</h2>
+    <input type="text" id="search" placeholder="Search Name or Phone..." onkeyup="filter()">
+  </div>
+  
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Phone</th>
+        <th>City</th>
+        <th>Total Sales</th>
+        <th>Balance Due</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<div id="histModal" class="modal">
+  <div class="modal-content">
+    <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+      <h3 style="margin:0;">Purchase History</h3>
+      <i class="fas fa-times" onclick="$('#histModal').hide()" style="cursor:pointer;"></i>
+    </div>
+    <div id="histContent"></div>
+  </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+  let customers = [];
+  
+  $(document).ready(() => {
+    google.script.run.withSuccessHandler(data => {
+      customers = data;
+      render(data);
+    }).custGetCustomers();
+  });
+
+  function render(list) {
+    const html = list.map(c => {
+      const bal = parseFloat(c['Balance Receivable']) || 0;
+      const badge = bal > 0 ? `<span class="badge badge-red">Due: ৳${bal}</span>` : `<span class="badge badge-green">Paid</span>`;
+      
+      return `<tr>
+        <td>${c['Customer ID']}</td>
+        <td><b>${c['Customer Name']}</b><br><small>${c['Customer Address']||''}</small></td>
+        <td>${c['Customer Contact']}</td>
+        <td>${c['City']||'-'}</td>
+        <td>৳${(c['Total Sales']||0).toLocaleString()}</td>
+        <td>${badge}</td>
+        <td><button onclick="viewHistory('${c['Customer ID']}')">History</button></td>
+      </tr>`;
+    }).join('');
+    $('#tbody').html(html);
+  }
+
+  function filter() {
+    const term = $('#search').val().toLowerCase();
+    const filtered = customers.filter(c => 
+      c['Customer Name'].toLowerCase().includes(term) || 
+      String(c['Customer Contact']).includes(term)
+    );
+    render(filtered);
+  }
+
+  function viewHistory(id) {
+    $('#histContent').html('<p>Loading...</p>');
+    $('#histModal').css('display','flex');
+    
+    google.script.run.withSuccessHandler(orders => {
+      if(!orders.length) { $('#histContent').html('<p>No orders found.</p>'); return; }
+      
+      const html = orders.map(o => `
+        <div style="border-bottom:1px solid #eee; padding:10px 0;">
+          <div style="display:flex; justify-content:space-between;">
+            <b>${new Date(o['SO Date']).toLocaleDateString()}</b>
+            <span>${o['Invoice Num'] || o['SO ID']}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; color:#666;">
+            <span>Total: ৳${o['Total SO Amount']}</span>
+            <span>Status: ${o['Receipt Status']}</span>
+          </div>
+        </div>
+      `).join('');
+      $('#histContent').html(html);
+    }).custGetHistory(id);
+  }
+</script>
+</body>
+</html>

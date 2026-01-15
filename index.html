@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* PREMIUM GRID LAYOUT */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 25px;
+      padding-bottom: 40px;
+    }
+
+    /* 1. STAT CARDS (The Top Row) */
+    .stat-card {
+      grid-column: span 1;
+      background: var(--bg-card);
+      border-radius: 16px;
+      padding: 25px;
+      position: relative;
+      box-shadow: var(--shadow);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      border: 1px solid var(--border);
+    }
+    .stat-card:hover { transform: translateY(-5px); }
+    
+    .stat-icon-box {
+      width: 50px; height: 50px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; margin-bottom: 15px;
+    }
+    .stat-title { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-value { font-size: 28px; font-weight: 700; color: var(--text-main); margin-top: 5px; }
+    .stat-desc { font-size: 12px; margin-top: 5px; opacity: 0.8; }
+
+    /* Colors */
+    .blue-theme { background: rgba(52, 152, 219, 0.1); color: #3498db; }
+    .green-theme { background: rgba(46, 204, 113, 0.1); color: #2ecc71; }
+    .red-theme { background: rgba(231, 76, 60, 0.1); color: #e74c3c; }
+    .orange-theme { background: rgba(243, 156, 18, 0.1); color: #f39c12; }
+
+    /* 2. DASHBOARD PANELS (Middle & Bottom) */
+    .dash-panel {
+      background: var(--bg-card);
+      border-radius: 16px;
+      padding: 25px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      display: flex; flex-direction: column;
+    }
+    .panel-header { margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+    .panel-title { font-size: 16px; font-weight: 600; color: var(--text-main); margin: 0; }
+    
+    /* 3. LISTS (Premium Style) */
+    .premium-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; }
+    .premium-list li {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 0; border-bottom: 1px solid var(--border);
+      transition: 0.2s;
+    }
+    .premium-list li:hover { background-color: var(--bg-hover); padding-left: 10px; padding-right: 10px; border-radius: 8px; }
+    .premium-list li:last-child { border-bottom: none; }
+
+    .rank-badge {
+      width: 24px; height: 24px; background: var(--bg-hover); color: var(--text-muted);
+      border-radius: 50%; font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; margin-right: 10px;
+    }
+
+    /* 4. TABLES (Modern) */
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 12px; color: var(--text-muted); font-size: 12px; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    td { padding: 14px 12px; border-bottom: 1px solid var(--border); color: var(--text-main); font-size: 13px; }
+    
+    .status-pill { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .st-Paid { background: rgba(46, 204, 113, 0.15); color: #2ecc71; }
+    .st-Unpaid { background: rgba(231, 76, 60, 0.15); color: #e74c3c; }
+    .st-Partial { background: rgba(241, 196, 15, 0.15); color: #f1c40f; }
+
+    /* 5. ALERTS (Red Badges) */
+    .stock-crit { background: #c0392b; color: white; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; }
+    .stock-warn { background: rgba(243, 156, 18, 0.2); color: #f39c12; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; }
+
+    /* LAYOUT SLOTS */
+    .slot-main-chart { grid-column: span 3; height: 380px; }
+    .slot-pie-chart  { grid-column: span 1; height: 380px; }
+    .slot-recent     { grid-column: span 2; min-height: 300px; }
+    .slot-list       { grid-column: span 1; min-height: 300px; }
+  </style>
+</head>
+<body>
+
+<div id="loader" style="display:flex; height:60vh; justify-content:center; align-items:center; color:var(--text-muted);">
+  <i class="fas fa-circle-notch fa-spin fa-3x"></i>
+</div>
+
+<div id="dashboard" class="dashboard-grid" style="display:none;">
+
+  <div class="stat-card">
+    <div class="stat-icon-box blue-theme"><i class="fas fa-wallet"></i></div>
+    <div class="stat-title">Total Revenue</div>
+    <div class="stat-value" id="kpiSales">...</div>
+    <div class="stat-desc" style="color:#2ecc71;">Lifetime Sales</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon-box green-theme"><i class="fas fa-money-bill-wave"></i></div>
+    <div class="stat-title">Cash Received</div>
+    <div class="stat-value" id="kpiRec">...</div>
+    <div class="stat-desc">Actual Cash Flow</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon-box red-theme"><i class="fas fa-hand-holding-usd"></i></div>
+    <div class="stat-title">Unpaid Due</div>
+    <div class="stat-value" id="kpiDue">...</div>
+    <div class="stat-desc" style="color:#e74c3c;">Pending Collection</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon-box orange-theme"><i class="fas fa-boxes"></i></div>
+    <div class="stat-title">Inventory Value</div>
+    <div class="stat-value" id="kpiStock">...</div>
+    <div class="stat-desc">Asset Value</div>
+  </div>
+
+  <div class="dash-panel slot-main-chart">
+    <div class="panel-header">
+      <h3 class="panel-title">Sales Analytics</h3>
+    </div>
+    <div style="flex:1; position:relative;"><canvas id="mainChart"></canvas></div>
+  </div>
+
+  <div class="dash-panel slot-pie-chart">
+    <div class="panel-header"><h3 class="panel-title">Categories</h3></div>
+    <div style="flex:1; position:relative;"><canvas id="pieChart"></canvas></div>
+  </div>
+
+  <div class="dash-panel slot-list">
+    <div class="panel-header"><h3 class="panel-title"><i class="fas fa-map-marker-alt" style="color:#3498db;"></i> Top Cities</h3></div>
+    <ul class="premium-list" id="cityList"></ul>
+  </div>
+
+  <div class="dash-panel slot-recent">
+    <div class="panel-header"><h3 class="panel-title">Recent Orders</h3></div>
+    <table>
+      <thead><tr><th>Order ID</th><th>Customer</th><th>Status</th><th style="text-align:right">Total</th></tr></thead>
+      <tbody id="recentTable"></tbody>
+    </table>
+  </div>
+
+  <div class="dash-panel slot-list">
+    <div class="panel-header"><h3 class="panel-title"><i class="fas fa-exclamation-triangle" style="color:#e74c3c;"></i> Low Stock</h3></div>
+    <ul class="premium-list" id="alertList"></ul>
+  </div>
+
+</div>
+
+<script>
+  window.onload = function() {
+    google.script.run.withSuccessHandler(render).getDashboardData();
+  };
+
+  function render(data) {
+    document.getElementById('loader').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'grid';
+    const fmt = n => '৳' + Number(n).toLocaleString();
+
+    // 1. Fill KPIs
+    document.getElementById('kpiSales').innerText = fmt(data.kpi.sales);
+    document.getElementById('kpiRec').innerText = fmt(data.kpi.received);
+    document.getElementById('kpiDue').innerText = fmt(data.kpi.due);
+    document.getElementById('kpiStock').innerText = fmt(data.kpi.stock);
+
+    // 2. Fill Cities
+    document.getElementById('cityList').innerHTML = data.topCities.map((c,i) => `
+      <li>
+        <div style="display:flex; align-items:center;">
+          <span class="rank-badge">${i+1}</span> ${c.city}
+        </div>
+        <span style="font-weight:600;">${fmt(c.total)}</span>
+      </li>
+    `).join('');
+
+    // 3. Fill Recent Table
+    document.getElementById('recentTable').innerHTML = data.recent.map(r => `
+      <tr>
+        <td style="font-family:monospace; font-weight:600;">${r.id}</td>
+        <td>${r.name}</td>
+        <td><span class="status-pill st-${r.status}">${r.status}</span></td>
+        <td style="text-align:right; font-weight:bold;">${fmt(r.amount)}</td>
+      </tr>
+    `).join('');
+
+    // 4. Fill Low Stock (Zero Logic)
+    if(data.lowStock.length === 0) {
+      document.getElementById('alertList').innerHTML = '<li style="justify-content:center; color:var(--text-muted); padding:20px;">Stock levels are healthy</li>';
+    } else {
+      document.getElementById('alertList').innerHTML = data.lowStock.map(item => {
+        const isZero = item.qty === 0;
+        return `
+        <li>
+          <div>
+            <div style="font-weight:600; ${isZero?'color:#e74c3c':''}">${item.name}</div>
+            <div style="font-size:11px; color:var(--text-muted);">Level: ${item.level}</div>
+          </div>
+          <span class="${isZero ? 'stock-crit' : 'stock-warn'}">${isZero ? 'OUT OF STOCK' : item.qty + ' Left'}</span>
+        </li>`;
+      }).join('');
+    }
+
+    // 5. Chart Config (Dark Mode Ready)
+    const isDark = document.body.getAttribute('data-theme') === 'dark';
+    const textColor = isDark ? '#8b949e' : '#8395a7';
+    const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+
+    new Chart(document.getElementById('mainChart'), {
+      type: 'line',
+      data: {
+        labels: data.chart.labels,
+        datasets: [{
+          label: 'Revenue', data: data.chart.values,
+          borderColor: '#1abc9c', backgroundColor: 'rgba(26, 188, 156, 0.1)',
+          fill: true, tension: 0.4, borderWidth: 2, pointRadius: 0
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: textColor } },
+          y: { grid: { color: gridColor }, ticks: { color: textColor } }
+        }
+      }
+    });
+
+    new Chart(document.getElementById('pieChart'), {
+      type: 'doughnut',
+      data: {
+        labels: data.pie.labels,
+        datasets: [{ data: data.pie.values, backgroundColor: ['#3498db','#e74c3c','#f1c40f','#2ecc71','#9b59b6'], borderWidth: 0 }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: textColor, boxWidth: 10 } } } }
+    });
+  }
+</script>
+</body>
+</html>
